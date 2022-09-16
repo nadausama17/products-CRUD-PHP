@@ -67,7 +67,10 @@
             <td><?= $product['price'] ?></td>
             <td><?= $product['create_date'] ?></td>
             <td><button class="btn btn-warning">Update</button></td>
-            <td><button class="btn btn-danger">Delete</button></td>
+            <form method="post" action="delete_product.php">
+                <input type="hidden" name="id" value="<?= $product['id'] ?>">
+                <td><button class="btn btn-danger">Delete</button></td>
+            </form>
         </tr>
         <?php } ?>    
     </tbody>
