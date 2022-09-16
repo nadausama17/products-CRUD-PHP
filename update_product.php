@@ -3,21 +3,27 @@
 
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
     $dotenv->load();
+
     $HOST = $_ENV['HOST'];
     $dbname = $_ENV['DBname'];
+    $image_base_url = "http://localhost/PHPCrud/images/";
+
+    $id = $_GET['id'] ?? null;
+    if(!$id){
+        header('Location: index.php');
+    }
+
     $pdo = null;
     try{
         $pdo = new PDO("mysql:host=$HOST;dbname=$dbname",$_ENV['DBusername'],$_ENV['DBpassword']);
-
-    }catch(PDOException $err){
-        echo $err;
+    }catch(PDOException $e){
+        echo $e;
     }
 
-    $title = '';
-    $image = '';
-    $price = '';
-    $description = '';
-    $errors = [];
+    $statement = $pdo->prepare('select * from products where id= :id');
+    $statement->bindValue(':id',$id);
+    $statement->execute();
+    $product = $statement->fetch(PDO::FETCH_ASSOC);
 
     function get_random_directory(){
         $str = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -28,47 +34,55 @@
         return $dirname;
     }
 
-    if($_SERVER['REQUEST_METHOD'] == "POST"){
+    if($_SERVER['REQUEST_METHOD'] == 'POST'){
         $title = $_POST['title'];
-        $image = $_FILES['image'];
         $price = $_POST['price'];
         $description = $_POST['description'];
+        $image = $_FILES['image'];
 
-        if(!$title) $errors['title'] = 'Title is Required';
-        if(!$price) $errors['price'] = 'Price is Required';
+        $errors = [];
 
-        if(!is_dir('images')){
-            mkdir('images');
-        }
+        if(!$title) $errors[] = 'Title is Required';
+        if(!$price) $errors[] = 'Price is Required';
 
         if(empty($errors)){
-            $statement = $pdo -> prepare('insert into products (title, image, price, description)
-            values (:title, :image, :price, :description)');
-            $statement ->bindValue(':title',$title);
-            $statement ->bindValue(':price',$price);
-            if($description) $statement ->bindValue(':description',$description);
-            else $statement ->bindValue(':description',null);
+            $statement = $pdo->prepare('update products set title= :title, price= :price,
+            description= :description, image= :image');
+            $statement->bindValue(':title',$title);
+            $statement->bindValue(':price',$price);
+            $statement->bindValue(':description',$description);
 
-            if($image['name']){
+            if($image['tmp_name']){
+                unlink('images/'.$product['image']);
+                rmdir('images/'.dirname($product['image']));
+
+                $image_path = get_random_directory().'/'.$image['name'];
                 try{
-                    $image_path = get_random_directory().'/'.$image['name'];
-                    $statement ->bindValue(':image',$image_path);
-                    $statement ->execute();
-
-                    mkdir(dirname('images/'.$image_path));
-                    move_uploaded_file($image['tmp_name'],'images/'.$image_path);
-                    header('Location: index.php');
+                    $statement->bindValue(':image',$image_path);
+                    $statement->execute();
                 }catch(PDOException $e){
                     echo $e;
                 }
+
+                if(!is_dir('images')){
+                    mkdir('images');
+                }
+
+                mkdir('images/'.dirname($image_path));
+
+                move_uploaded_file($image['tmp_name'],'images/'.$image_path);
+
+                header('Location: index.php');
             }else{
-                $statement ->bindValue(':image',null);
-                $statement ->execute();
+                $statement->bindValue(':image',$product['image']);
+                $statement->execute();
+
                 header('Location: index.php');
             }
         }
     }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -77,6 +91,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Products | CRUD</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" href="./CSS/styles.css">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -94,13 +109,20 @@
             </div>
         </div>
     </nav>
-    <h2 class="my-5 text-center">Add Product</h2>
+    <h3 class="my-3 text-center">Update Product</h3>
+
+    <div class="text-center mb-3">
+        <img class="updateimage" src="<?= $image_base_url.$product['image'] ?>" alt="product_image">
+    </div>
+
     <form class="form w-75 m-auto" method="post" enctype="multipart/form-data">
         <div class="mb-3">
             <input type="file" class="form-control w-100" name="image">
+            <p>The current image is <?= explode("/",$product['image'])[1] ?></p>
         </div>
         <div class="mb-3">
-            <input type="text" class="form-control w-100" name="title" value="<?= $title ?>" placeholder="Title">
+            <label>Title:</label>
+            <input type="text" class="form-control w-100" name="title" value="<?= $product['title'] ?>">
             <?php if($errors['title']){ ?>
             <div class="alert alert-danger mt-1">
                 <?= $errors['title'] ?>
@@ -108,17 +130,19 @@
             <?php } ?>
         </div>
         <div class="mb-3">
-            <textarea name="description" class="form-control w-100" rows="5" placeholder="Description"><?= $description ?></textarea>
+            <label>Description:</label>
+            <textarea name="description" class="form-control w-100" rows="5"><?= $product['description'] ?></textarea>
         </div>
         <div>
-            <input type="number" class="form-control w-100" step="0.01" name="price" value="<?= $price ?>" placeholder="Price">
+            <label>Price:</label>
+            <input type="number" value="<?= $product['price'] ?>" class="form-control w-100" step="0.01" name="price" value="<?= $price ?>">
         </div>
         <?php if($errors['price']){ ?>
             <div class="alert alert-danger mt-1">
                 <?= $errors['price'] ?>
             </div>
         <?php } ?>
-        <button type="submit" class="btn btn-primary mt-3">Add</button>
+        <button type="submit" class="btn btn-primary mt-3">Update</button>
     </form>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
 </body>
