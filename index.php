@@ -11,7 +11,13 @@
     try{
         $pdo = new PDO("mysql:host=$HOST;dbname=$dbname",$_ENV['DBusername'],$_ENV['DBpassword']);
 
-        $statement = $pdo->prepare('select * from products');
+        $searchText = trim($_GET['searchText']) ?? '';
+
+        if($searchText){
+            $statement = $pdo->prepare('select * from products where title like :title order by create_date desc');
+            $statement->bindValue(':title',"%$searchText%");
+        }
+        else $statement = $pdo->prepare('select * from products order by create_date desc');
         $statement->execute();
 
         $products = $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -47,6 +53,17 @@
         </div>
     </nav>
     <h2 class="text-center">All Products</h2>
+    <form class="container my-4 w-75 m-auto">
+        <div class="row gx-0">
+            <div class="col-9 m-auto">
+                <input class="form-control w-100 h-100" value="<?= $searchText ?>" type="text" placeholder="Search text" 
+                name="searchText">
+            </div>
+            <div class="col-1 m-auto">
+                <button class="btn btn-primary" type="submit">Search</button>
+            </div>
+        </div>
+    </form>
     <table class="table">
     <thead>
     <tr>
