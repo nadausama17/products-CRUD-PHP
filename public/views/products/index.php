@@ -1,21 +1,4 @@
-<?php
-    $pdo = require_once '../../database.php';
-
-    $searchText = trim($_GET['searchText']) ?? '';
-
-    if($searchText){
-        $statement = $pdo->prepare('select * from products where title like :title order by create_date desc');
-        $statement->bindValue(':title',"%$searchText%");
-    }else
-        $statement = $pdo->prepare('select * from products order by create_date desc');
-    
-    $statement->execute();
-    $products = $statement->fetchAll(PDO::FETCH_ASSOC);
-    
-?>
-
-    <?php include_once '../../views/partials/header.php' ?>
-    <h2 class="text-center">All Products</h2>
+<h2 class="text-center">All Products</h2>
     <form class="container my-4 w-75 m-auto">
         <div class="row gx-0">
             <div class="col-9 m-auto">
@@ -46,8 +29,8 @@
             <td><?= $product['title'] ?></td>
             <td><?= $product['price'] ?></td>
             <td><?= $product['create_date'] ?></td>
-            <td><a href="update_product.php?id=<?= $product['id'] ?>" class="btn btn-warning">Update</a></td>
-            <form method="post" action="delete_product.php">
+            <td><a href="/products/update?id=<?= $product['id'] ?>" class="btn btn-warning">Update</a></td>
+            <form method="post" action="/products/delete">
                 <input type="hidden" name="id" value="<?= $product['id'] ?>">
                 <td><button class="btn btn-danger">Delete</button></td>
             </form>
@@ -55,7 +38,3 @@
         <?php } ?>    
     </tbody>
     </table>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
-</body>
-</html>
